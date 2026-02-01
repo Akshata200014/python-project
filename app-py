@@ -1,0 +1,69 @@
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime
+
+# Page Configuration
+st.set_page_config(page_title="Crypto Tracker", layout="wide")
+
+st.title("🚀 Real-time Crypto Price Tracker")
+st.sidebar.header("Settings")
+
+# Sidebar - Selection
+ticker_symbol = st.sidebar.selectbox(
+    "Select Cryptocurrency", 
+    ("BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD", "ADA-USD")
+)
+
+time_period = st.sidebar.select_slider(
+    "Select Time Range",
+    options=["1d", "5d", "1mo", "6mo", "1y", "max"],
+    value="1mo"
+)
+
+# Fetch Data function
+def get_data(ticker, period):
+    data = yf.download(ticker, period=period, interval="1h" if period == "1d" else "1d")
+    return data
+
+try:
+    # Load data
+    df = get_data(ticker_symbol, time_period)
+
+    # Current Price Metrics
+    current_price = df['Close'].iloc[-1]
+    prev_price = df['Close'].iloc[0]
+    percentage_change = ((current_price - prev_price) / prev_price) * 100
+
+    col1, col2 = st.columns(2)
+    col1.metric("Live Price", f"${current_price:,.2f}", f"{percentage_change:.2f}%")
+    col2.info(f"Showing data for: {ticker_symbol}")
+
+    # Plotting the Chart
+    fig = go.Figure()
+    fig.add_trace(go.Candlestick(
+        x=df.index,
+        open=df['Open'],
+        high=df['High'],
+        low=df['Low'],
+        close=df['Close'],
+        name='Market Data'
+    ))
+
+    fig.update_layout(
+        title=f"{ticker_symbol} Price History",
+        yaxis_title="Price (USD)",
+        xaxis_title="Date",
+        template="plotly_dark",
+        height=600
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Show Raw Data
+    if st.checkbox("Show Raw Historical Data"):
+        st.dataframe(df.tail(10))
+
+except Exception as e:
+    st.error(f"Error fetching data: {e}")
